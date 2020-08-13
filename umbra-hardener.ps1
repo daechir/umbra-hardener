@@ -3,14 +3,24 @@
 #
 # Author: Daechir
 # Author URL: https://github.com/daechir
-# Modified Date: 03/16/20
-# Version: v1
+# Modified Date: 03/31/20
+# Version: v2
 #
 #
 # ---------------------------------------------------------------------------------------------------------------------
 #
 #
 # Changelog:
+#		v2
+#			* Overhauled the following:
+#				* SysCleanup bloat reg keys removed.
+#					* It's far more efficient to use an auto reg cleaner to address these instead, like CCleaner.
+#				* WindowsCapability and WindowsOptionalFeature, moved to SysCleanup in arr format.
+#				* ScheduledTask, moved to SysCleanup in arr format.
+#				* SvcTweaks should now only include random non-essential features or services.
+#				* NetworkTweaks should now only include network related features or services.
+#					* Note: Some items, while they have networking concepts (Activity History, Telemetry, Cortana, etc), aren't considered Networking Tweaks
+#							because they have very little do with hardening or disabling attack sectors of the network stack.
 #		v1
 #			* This marks the beginning of the Umbra Hardener.
 #
@@ -160,44 +170,109 @@ function SysCleanup {
         Get-AppxPackage -AllUsers -Name $app| Remove-AppxPackage
         Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like $app | Remove-AppxProvisionedPackage -Online
     }
+		
+	# Bloatware features
+	# First round, optional WindowsCapability features
+	$features_1 = @(
+		"App.Support.QuickAssist*"
+		"Browser.InternetExplorer*"
+		"Hello.Face*"
+		"MathRecognizer*"
+		"Media.WindowsMediaPlayer*"
+		"OpenSSH.Client*"
+		"OpenSSH.Server*"
+	)
 	
-	# Bloatware registry keys cleanup
-    $keys = @(
-        "HKCR:\Extensions\ContractId\Windows.BackgroundTasks\PackageId\46928bounde.EclipseManager_2.2.4.51_neutral__a5h4egax66k6y"
-        "HKCR:\Extensions\ContractId\Windows.BackgroundTasks\PackageId\ActiproSoftwareLLC.562882FEEB491_2.6.18.18_neutral__24pqs290vpjk0"
-        "HKCR:\Extensions\ContractId\Windows.BackgroundTasks\PackageId\Microsoft.MicrosoftOfficeHub_17.7909.7600.0_x64__8wekyb3d8bbwe"
-        "HKCR:\Extensions\ContractId\Windows.BackgroundTasks\PackageId\Microsoft.PPIProjection_10.0.15063.0_neutral_neutral_cw5n1h2txyewy"
-        "HKCR:\Extensions\ContractId\Windows.BackgroundTasks\PackageId\Microsoft.XboxGameCallableUI_1000.15063.0.0_neutral_neutral_cw5n1h2txyewy"
-        "HKCR:\Extensions\ContractId\Windows.BackgroundTasks\PackageId\Microsoft.XboxGameCallableUI_1000.16299.15.0_neutral_neutral_cw5n1h2txyewy"
-            
-        "HKCR:\Extensions\ContractId\Windows.File\PackageId\ActiproSoftwareLLC.562882FEEB491_2.6.18.18_neutral__24pqs290vpjk0"
-            
-        "HKCR:\Extensions\ContractId\Windows.Launch\PackageId\46928bounde.EclipseManager_2.2.4.51_neutral__a5h4egax66k6y"
-        "HKCR:\Extensions\ContractId\Windows.Launch\PackageId\ActiproSoftwareLLC.562882FEEB491_2.6.18.18_neutral__24pqs290vpjk0"
-        "HKCR:\Extensions\ContractId\Windows.Launch\PackageId\Microsoft.PPIProjection_10.0.15063.0_neutral_neutral_cw5n1h2txyewy"
-        "HKCR:\Extensions\ContractId\Windows.Launch\PackageId\Microsoft.XboxGameCallableUI_1000.15063.0.0_neutral_neutral_cw5n1h2txyewy"
-        "HKCR:\Extensions\ContractId\Windows.Launch\PackageId\Microsoft.XboxGameCallableUI_1000.16299.15.0_neutral_neutral_cw5n1h2txyewy"
-            
-        "HKCR:\Extensions\ContractId\Windows.PreInstalledConfigTask\PackageId\Microsoft.MicrosoftOfficeHub_17.7909.7600.0_x64__8wekyb3d8bbwe"
-            
-        "HKCR:\Extensions\ContractId\Windows.Protocol\PackageId\ActiproSoftwareLLC.562882FEEB491_2.6.18.18_neutral__24pqs290vpjk0"
-        "HKCR:\Extensions\ContractId\Windows.Protocol\PackageId\Microsoft.PPIProjection_10.0.15063.0_neutral_neutral_cw5n1h2txyewy"
-        "HKCR:\Extensions\ContractId\Windows.Protocol\PackageId\Microsoft.XboxGameCallableUI_1000.15063.0.0_neutral_neutral_cw5n1h2txyewy"
-        "HKCR:\Extensions\ContractId\Windows.Protocol\PackageId\Microsoft.XboxGameCallableUI_1000.16299.15.0_neutral_neutral_cw5n1h2txyewy"
-               
-        "HKCR:\Extensions\ContractId\Windows.ShareTarget\PackageId\ActiproSoftwareLLC.562882FEEB491_2.6.18.18_neutral__24pqs290vpjk0"
-    )
-        
-    foreach ($key in $keys) {
-        Remove-Item $key -Recurse
-    }
+    foreach ($feature in $features_1) {
+		Get-WindowsCapability -Online | Where-Object { $_.Name -like $feature } | Remove-WindowsCapability -Online | Out-Null
+    }	
+	
+	# Second round, optional WindowsFeature
+	$features_2 = @(
+		"FaxServicesClientPackage"
+		"LegacyComponents"
+		"MediaPlayback"
+		"MicrosoftWindowsPowerShellV2Root"
+		"Microsoft-Windows-Subsystem-Linux"
+		"MSRDC-Infrastructure"
+		"NetFx3"
+		"Printing-Foundation-Features"
+		"Printing-Foundation-InternetPrinting-Client"
+		"Printing-Foundation-LPDPrintService"
+		"Printing-Foundation-LPRPortMonitor"
+		"Printing-PrintToPDFServices-Features"
+		"Printing-XPSServices-Features"
+		"SMB1Protocol"
+		"SMB1Protocol-Client"
+		"SMB1Protocol-Deprecation"
+		"SMB1Protocol-Server"
+		"WindowsMediaPlayer"
+		"WorkFolders-Client"
+	)
+	
+	foreach ($feature in $features_2) {
+		Disable-WindowsOptionalFeature -Online -FeatureName $feature -NoRestart -WarningAction SilentlyContinue | Out-Null
+	}
+	
+	# Disable Built-in Browsers (Microsoft Edge, Internet Explorer)
+		# Disable Microsoft Edge
+		# Note: In later versions of Windows 10 (1903+) Microsoft Edge cannot be uninstalled through powershell.
+		# Instead we can just disable its symbolic links by renaming the folder, which effectively disables it.
+		Get-Process | Where-Object { $_.Name -like "MicrosoftEdg*" } | Stop-Process
+		If ((Test-Path "C:\Windows\SystemApps\Microsoft.MicrosoftEdge_8wekyb3d8bbwe")) {
+			Rename-Item "C:\Windows\SystemApps\Microsoft.MicrosoftEdge_8wekyb3d8bbwe" "C:\Windows\SystemApps\Microsoft.MicrosoftEdge_Disabled" 
+		}
+		If ((Test-Path "C:\Windows\SystemApps\Microsoft.MicrosoftEdgeDevToolsClient_8wekyb3d8bbwe")) {
+			Rename-Item "C:\Windows\SystemApps\Microsoft.MicrosoftEdgeDevToolsClient_8wekyb3d8bbwe" "C:\Windows\SystemApps\Microsoft.MicrosoftEdgeDevToolsClient_Disabled"
+		}
+		# Disable Internet Explorer
+		# Note: Even with Remove-WindowsCapability returning successful IE files will still remain on the system. 
+		# Instead we can just disable its symbolic links by renaming the folder, which effectively disables it.
+		If ((Test-Path "C:\Program Files\Internet Explorer")) {
+			Rename-Item "C:\Program Files\Internet Explorer" "C:\Program Files\Microsoft.InternetExplorer_Disabled"
+		}
+		If ((Test-Path "C:\Program Files (x86)\Internet Explorer")) {
+			Rename-Item "C:\Program Files (x86)\Internet Explorer" "C:\Program Files (x86)\Microsoft.InternetExplorer_Disabled"
+		}
+		
+	# Disable Connect
+	# Note: Just like the two examples above connect or miracast will remain installed regardless of our intentions.
+	# Instead we can just disable its symbolic links by renaming the folder, which effectively disables it.
+	If ((Test-Path "C:\Windows\SystemApps\Microsoft.PPIProjection_cw5n1h2txyewy")) {
+		Rename-Item "C:\Windows\SystemApps\Microsoft.PPIProjection_cw5n1h2txyewy" "C:\Windows\SystemApps\Microsoft.PPIProjection_Disabled"
+	}
 	
 	# Bloatware tasks cleanup
-    Get-ScheduledTask  "XblGameSaveTask" | Disable-ScheduledTask
-    Get-ScheduledTask  "Consolidator" | Disable-ScheduledTask
-    Get-ScheduledTask  "UsbCeip" | Disable-ScheduledTask
-    Get-ScheduledTask  "DmClient" | Disable-ScheduledTask
-    Get-ScheduledTask  "DmClientOnScenarioDownload" | Disable-ScheduledTask
+	$tasks = @(
+		"Consolidator"
+		"DmClient"
+		"DmClientOnScenarioDownload"
+		"FamilySafetyMonitor"
+		"FamilySafetyRefreshTask"
+		"File History (maintenance mode)"
+		"FODCleanupTask"
+		"MapsToastTask"
+		"MapsUpdateTask"
+		"Microsoft-Windows-DiskDiagnosticDataCollector"
+		"Microsoft Compatibility Appraiser"
+		"MNO Metadata Parser"
+		"MobilityManager"
+		"NotificationTask"
+		"ProgramDataUpdater"
+		"Proxy"
+		"QueueReporting"
+		"RemoteAssistanceTask"
+		"StorageSense"
+		"UPnPHostConfig"
+		"UsbCeip"
+		"WinSAT"
+		"XblGameSaveTask"
+	)
+	
+    foreach ($task in $tasks) {
+		Get-ScheduledTask -TaskName $task | Disable-ScheduledTask
+    }
+	
 }
 
 function SvcDependency {
@@ -255,6 +330,10 @@ function SvcDependency {
 	
 	If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows")) {
 		New-Item -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows" | Out-Null
+	}
+	
+	If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization")) {
+		New-Item -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" | Out-Null
 	}
 	
 	If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\WindowsInkWorkspace")) {
@@ -372,29 +451,26 @@ function SvcDependency {
 	If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer")) {
 		New-Item -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" | Out-Null
 	}
+	
+	If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\WindowsUpdate")) {
+		New-Item -Force -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\WindowsUpdate" | Out-Null
+	}
 }
 
 function SvcTweaks {	
-	# Disable ActiveX Installer (AxInstSV)
+	# Disable ActiveX Installer Service (AxInstSV)
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\AxInstSV" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Activity History
+	# Disable Activity History Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableActivityFeed" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "PublishUserActivities" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "UploadUserActivities" -PropertyType DWord -Value 0
 
-	# Disable Adobe Flash
-	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Internet Explorer" -Name "DisableFlashInIE" -PropertyType DWord -Value 1
-	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\Addons" -Name "FlashPlayerEnabled" -PropertyType DWord -Value 0
-
-	# Disable Advertising ID
+	# Disable Advertising ID Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" -Name "DisabledByGroupPolicy" -PropertyType DWord -Value 1
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -PropertyType DWord -Value 0
 
-	# Disable Alljoyn Router Service
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\AJRouter" -Name "Start" -PropertyType DWord -Value 4
-
-	# Disable Application Suggestions and automatic installation
+	# Disable Application Suggestions and Automatic Installation Feature
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "ContentDeliveryAllowed" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "OemPreInstalledAppsEnabled" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "PreInstalledAppsEnabled" -PropertyType DWord -Value 0
@@ -418,75 +494,46 @@ function SvcTweaks {
 		Stop-Process -Name "ShellExperienceHost" -Force -ErrorAction SilentlyContinue
 	}
 	
-	# Disable Audio Video Control Transport Protocol
+	# Disable AVCTP Service (BthAvctpSvc)
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthAvctpSvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Background Apps
+	# Disable Background Apps Feature
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" -Name "GlobalUserDisabled" -PropertyType DWord -Value 1
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BackgroundAppGlobalToggle" -PropertyType DWord -Value 0
 	Get-ChildItem -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" | ForEach-Object {
 		New-ItemProperty -Force -Path $_.PsPath -Name "Disabled" -PropertyType DWord -Value 1
 		New-ItemProperty -Force -Path $_.PsPath -Name "DisabledByUser" -PropertyType DWord -Value 1
 	}
-	
-	# Disable BcastDVRUserService
-	Get-Service -name "BcastDVRUserService*" | Stop-Service -WarningAction SilentlyContinue
-	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "BcastDVRUserService*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
-	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_DXGIHonorFSEWindowsCompatible" -PropertyType DWord -Value 1
-	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_FSEBehavior" -PropertyType DWord -Value 2
-	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_FSEBehaviorMode" -PropertyType DWord -Value 2
-	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_HonorUserFSEBehaviorMode" -PropertyType DWord -Value 1
-	
-	# Disable Biometrics
+		
+	# Disable Biometric Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Biometrics" -Name "Enabled" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WbioSrvc" -Name "Start" -PropertyType DWord -Value 4
 		
-	# Disable BitLocker Drive Encryption Service
+	# Disable BitLocker Drive Encryption Service (BDESVC)
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BDESVC" -Name "Start" -PropertyType DWord -Value 4
 		
-	# Disable Bluetooth Services
-	Get-Service -name "BluetoothUserService*" | Stop-Service -WarningAction SilentlyContinue
-	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "BluetoothUserService*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTAGService" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthA2dp" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthEnum" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthHFEnum" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthLEEnum" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthMini" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTHMODEM" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthPan" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTHPORT" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bthserv" -Name "Start" -PropertyType DWord -Value 4
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTHUSB" -Name "Start" -PropertyType DWord -Value 4
-	Get-ScheduledTask  "NotificationTask" | Disable-ScheduledTask
-	
 	# Disable Capture Service
-	Get-Service -name "CaptureService*" | Stop-Service -WarningAction SilentlyContinue
+	Get-Service -Name "CaptureService*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "CaptureService*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 
-	# Disable Certificate Propagation
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\CertPropSvc" -Name "Start" -PropertyType DWord -Value 4
-
-	# Disable Clipboard History
-	Get-Service -name "cbdhsvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable Clipboard History Feature
+	Get-Service -Name "cbdhsvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "cbdhsvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "AllowClipboardHistory" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Clipboard" -Name "EnableClipboardHistory" -PropertyType DWord -Value 0
 
-	# Disable Connected Devices Platform
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\CDPSvc" -Name "Start" -PropertyType DWord -Value 4
-	Get-Service -name "CDPUserSvc*" | Stop-Service -WarningAction SilentlyContinue
-	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "CDPUserSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
-	
-	# Disable ConsentUX (ConsentUxUserSvc)
-	Get-Service -name "ConsentUxUserSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable Connected User Experiences and Telemetry Service (DiagTrack)
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DiagTrack" -Name "Start" -PropertyType DWord -Value 4
+		
+	# Disable ConsentUX Service (ConsentUxUserSvc)
+	Get-Service -Name "ConsentUxUserSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "ConsentUxUserSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 
-	# Disable Contact Data (PimIndexMaintenanceSvc)
-	Get-Service -name "PimIndexMaintenanceSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable Contact Data Service (PimIndexMaintenanceSvc)
+	Get-Service -Name "PimIndexMaintenanceSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "PimIndexMaintenanceSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 	
-	# Disable Cortana
+	# Disable Cortana Feature
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Personalization\Settings" -Name "AcceptedPrivacyPolicy" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\InputPersonalization" -Name "RestrictImplicitTextCollection" -PropertyType DWord -Value 1
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\InputPersonalization" -Name "RestrictImplicitInkCollection" -PropertyType DWord -Value 1
@@ -495,86 +542,53 @@ function SvcTweaks {
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "AllowCortana" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\InputPersonalization" -Name "AllowInputPersonalization" -PropertyType DWord -Value 0
 	
-	# Disable Data Usage
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DusmSvc" -Name "Start" -PropertyType DWord -Value 4
-	
-	# Disable Delivery Optimization
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DoSvc" -Name "Start" -PropertyType DWord -Value 4
-	If ([System.Environment]::OSVersion.Version.Build -eq 10240) {
-		# Method used in 1507
-		If (!(Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config")) {
-			New-Item -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" | Out-Null
-		}
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -PropertyType DWord -Value 1
-	} ElseIf ([System.Environment]::OSVersion.Version.Build -le 14393) {
-		# Method used in 1511 and 1607
-		If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization")) {
-			New-Item -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" | Out-Null
-		}
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" -Name "DODownloadMode" -PropertyType DWord -Value 1
-	} Else {
-		# Method used since 1703
-		Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" -Name "DODownloadMode" -ErrorAction SilentlyContinue
-	}
-	
-	# Disable DevQuery Background Discovery Broker
-	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DevQueryBroker" -Name "Start" -PropertyType DWord -Value 4
-
-	# Disable Developermode
-	Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -ErrorAction SilentlyContinue
-	Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowAllTrustedApps" -ErrorAction SilentlyContinue
-	
 	# Disable Diagnostic
-		# Execution
-		Stop-Service "diagsvc" -WarningAction SilentlyContinue
+		# Execution Service
+		Get-Service -Name "diagsvc" | Stop-Service -Force -ErrorAction SilentlyContinue
 		Set-Service "diagsvc" -StartupType Disabled
-		# Policy
-		Stop-Service "DPS" -WarningAction SilentlyContinue
+		# Policy Service
+		Get-Service -Name "DPS" | Stop-Service -Force -ErrorAction SilentlyContinue
 		Set-Service "DPS" -StartupType Disabled
-		# Service
-		Stop-Service "WdiServiceHost" -WarningAction SilentlyContinue
+		# Service Host
+		Get-Service -Name "WdiServiceHost" | Stop-Service -Force -ErrorAction SilentlyContinue
 		Set-Service "WdiServiceHost" -StartupType Disabled
-		# System
-		Stop-Service "WdiSystemHost" -WarningAction SilentlyContinue
+		# System Host
+		Get-Service -Name "WdiSystemHost" | Stop-Service -Force -ErrorAction SilentlyContinue
 		Set-Service "WdiSystemHost" -StartupType Disabled
-		# Track
-		Stop-Service "DiagTrack" -WarningAction SilentlyContinue
-		Set-Service "DiagTrack" -StartupType Disabled
 	
-	# Disable Embedded Mode
+	# Disable Embedded Mode Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\embeddedmode" -Name "Start" -PropertyType DWord -Value 4
 
 	# Disable Enterprise App Management Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EntAppSvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable fast user switching
+	# Disable Fast User Switching Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "HideFastUserSwitching" -PropertyType DWord -Value 1
 	
-	# Disable feedback
+	# Disable Feedback Notifications Feature
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Siuf\Rules" -Name "NumberOfSIUFInPeriod" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "DoNotShowFeedbackNotifications" -PropertyType DWord -Value 1
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Feedback\Siuf\DmClient" -ErrorAction SilentlyContinue | Out-Null
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload" -ErrorAction SilentlyContinue | Out-Null
 	
-	# Disable File History
+	# Disable File History Feature
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\fhsvc" -Name "Start" -PropertyType DWord -Value 4
-	Get-ScheduledTask  "File History (maintenance mode)" | Disable-ScheduledTask
 
-	# Disable first logon animation
-	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableFirstLogonAnimation" -PropertyType DWord -Value 0
-
-	# Disable Geolocation
+	# Disable GameDVR and Broadcast Service (BcastDVRUserService)
+	Get-Service -Name "BcastDVRUserService*" | Stop-Service -Force -ErrorAction SilentlyContinue
+	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "BcastDVRUserService*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
+	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_DXGIHonorFSEWindowsCompatible" -PropertyType DWord -Value 1
+	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_FSEBehavior" -PropertyType DWord -Value 2
+	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_FSEBehaviorMode" -PropertyType DWord -Value 2
+	New-ItemProperty -Force -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_HonorUserFSEBehaviorMode" -PropertyType DWord -Value 1
+	
+	# Disable Geolocation Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\lfsvc" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Hello Face
-	Get-WindowsCapability -Online | Where-Object { $_.Name -like "Hello.Face*" } | Remove-WindowsCapability -Online | Out-Null	
-
-	# Disable Hibernation
+	# Disable Hibernation Feature
 	New-ItemProperty -Force -Path "HKLM:\System\CurrentControlSet\Control\Session Manager\Power" -Name "HibernateEnabled" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings" -Name "ShowHibernateOption" -PropertyType DWord -Value 0
 	powercfg /HIBERNATE OFF 2>&1 | Out-Null
 	
-	# Disable HV Host
+	# Disable Hyper-V Hypervisor Services (HvHost)
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\HvHost" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\vmickvpexchange" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\vmicguestinterface" -Name "Start" -PropertyType DWord -Value 4
@@ -585,63 +599,39 @@ function SvcTweaks {
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\vmictimesync" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\vmicvss" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable IE
-	Get-WindowsCapability -Online | Where-Object { $_.Name -like "Browser.InternetExplorer*" } | Remove-WindowsCapability -Online | Out-Null
-
-	# Disable Location
+	# Disable Location Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" -Name "DisableLocation" -PropertyType DWord -Value 1
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" -Name "DisableLocationScripting" -PropertyType DWord -Value 1
 	
-	# Disable Math Recognizer
-	Get-WindowsCapability -Online | Where-Object { $_.Name -like "MathRecognizer*" } | Remove-WindowsCapability -Online | Out-Null
-	
 	# Disable Messaging Service
-	Get-Service -name "MessagingService*" | Stop-Service -WarningAction SilentlyContinue
+	Get-Service -Name "MessagingService*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "MessagingService*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 	
 	# Disable Microsoft (R) Diagnostics Hub Standard Collector Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\diagnosticshub.standardcollector.service" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Microsoft Account Sign-in Assistant
+	# Disable Microsoft Account Sign-in Assistant Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wlidsvc" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "NoConnectedUser" -PropertyType DWord -Value 3
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\Settings\AllowYourAccount" -Name "value" -PropertyType DWord -Value 0
-
-	# Disable Microsoft Edge
-	Get-Process | Where-Object { $_.Name -like "MicrosoftEdg*" } | Stop-Process
-	If ((Test-Path "C:\Windows\SystemApps\Microsoft.MicrosoftEdge_8wekyb3d8bbwe")) {
-		Rename-Item "C:\Windows\SystemApps\Microsoft.MicrosoftEdge_8wekyb3d8bbwe" "C:\Windows\SystemApps\Microsoft.MicrosoftEdge_Disabled"
-	}
-	If ((Test-Path "C:\Windows\SystemApps\Microsoft.MicrosoftEdgeDevToolsClient_8wekyb3d8bbwe")) {	
-		Rename-Item "C:\Windows\SystemApps\Microsoft.MicrosoftEdgeDevToolsClient_8wekyb3d8bbwe" "C:\Windows\SystemApps\Microsoft.MicrosoftEdgeDevToolsClient_Disabled"
-	}
 	
 	# Disable Microsoft iSCSI Initiator Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\MSiSCSI" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Microsoft Storage Spaces SMP
+	# Disable Microsoft Storage Spaces SMP Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\smphost" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable Microsoft Windows SMS Router Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SmsRouter" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable .NET Framework 2.0, 3.0 and 3.5 runtimes
-	If ((Get-CimInstance -Class "Win32_OperatingSystem").ProductType -eq 1) {
-		Disable-WindowsOptionalFeature -Online -FeatureName "NetFx3" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	} Else {
-		Uninstall-WindowsFeature -Name "NET-Framework-Core" -WarningAction SilentlyContinue | Out-Null
-	}
-	
-	# Disable Offline Maps
+	# Disable Offline Maps Feature
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\Maps" -Name "AutoUpdateEnabled" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\MapsBroker" -Name "Start" -PropertyType DWord -Value 4
-	Get-ScheduledTask  "MapsToastTask" | Disable-ScheduledTask
-	Get-ScheduledTask  "MapsUpdateTask" | Disable-ScheduledTask
 	
-	# Disable Optimize Drives
+	# Disable Optimize Drives Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\defragsvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable OneDrive
+	# Disable OneDrive Feature
 	If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive")) {
 		New-Item -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive" | Out-Null
 	}
@@ -668,16 +658,16 @@ function SvcTweaks {
 	Remove-Item -Path "HKCR:\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}" -Recurse -ErrorAction SilentlyContinue
 	Remove-Item -Path "HKCR:\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}" -Recurse -ErrorAction SilentlyContinue
 	
-	# Disable Parental Controls
+	# Disable Parental Controls Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WpcMonSvc" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Payments and NFC/SE Manager
+	# Disable Payments and NFC/SE Manager Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SEMgrSvc" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Performance Counter DLL Host
+	# Disable Performance Counter DLL Host Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\PerfHost" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Performance Logs & Alerts
+	# Disable Performance Logs & Alerts Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\pla" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable Phone Service
@@ -691,40 +681,38 @@ function SvcTweaks {
 	# Disable Program Compatibility Assistant Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\PcaSvc" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Problem Reports and Solutions Control Panel Support
+	# Disable Problem Reports and Solutions Control Panel Support Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wercplsupport" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Quality Windows Audio Video Experience
+	# Disable Quality Windows Audio Video Experience Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\QWAVE" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\QWAVEdrv" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Quick Assist
-	Get-WindowsCapability -Online | Where-Object { $_.Name -like "App.Support.QuickAssist*" } | Remove-WindowsCapability -Online | Out-Null
-
-	# Disable Retail Demo
+	# Disable Retail Demo Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\RetailDemo" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Remote Procedure Call (RPC) Locator
+	# Disable Remote Procedure Call (RPC) Locator Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\RpcLocator" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Remote Registry
+	# Disable Remote Registry Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\RemoteRegistry" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Sensors
+	# Disable Sensors Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" -Name "DisableSensors" -PropertyType DWord -Value 1
 	
-	# Disable Secondary Logon 
+	# Disable Secondary Logon Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\seclogon" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Shared PC Account Manager
+	# Disable Shared PC Account Manager Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\shpamsvc" -Name "Start" -PropertyType DWord -Value 4
 
 	# Disable Smart Card Services
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\CertPropSvc" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SCardSvr" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\ScDeviceEnum" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SCPolicySvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Sleep
+	# Disable Sleep Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings" -Name "ShowSleepOption" -PropertyType DWord -Value 0
 	powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0
 	powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0
@@ -733,14 +721,14 @@ function SvcTweaks {
 	powercfg /X standby-timeout-ac 0
 	powercfg /X standby-timeout-dc 0
 	
-	# Disable Sync Host (OneSyncSvc)
-	Get-Service -name "OneSyncSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable Sync Host Service (OneSyncSvc)
+	Get-Service -Name "OneSyncSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "OneSyncSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 
-	# Disable Tailored Experiences
+	# Disable Tailored Experiences Feature
 	New-ItemProperty -Force -Path "HKCU:\Software\Policies\Microsoft\Windows\CloudContent" -Name "DisableTailoredExperiencesWithDiagnosticData" -PropertyType DWord -Value 1
 	
-	# Disable Telemetry
+	# Disable Telemetry Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" -Name "AllowTelemetry" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Policies\DataCollection" -Name "AllowTelemetry" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -PropertyType DWord -Value 0
@@ -752,25 +740,19 @@ function SvcTweaks {
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\AppV\CEIP" -Name "CEIPEnable" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\TabletPC" -Name "PreventHandwritingDataSharing" -PropertyType DWord -Value 1
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\TextInput" -Name "AllowLinguisticDataCollection" -PropertyType DWord -Value 0
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser" | Out-Null
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Application Experience\ProgramDataUpdater" | Out-Null
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Autochk\Proxy" | Out-Null
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Customer Experience Improvement Program\Consolidator" | Out-Null
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Customer Experience Improvement Program\UsbCeip" | Out-Null
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector" | Out-Null
 
 	# Disable Touch Keyboard and Handwriting Panel Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\TabletInputService" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable User Data Access (UserDataSvc)
-	Get-Service -name "UserDataSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable User Data Access Service (UserDataSvc)
+	Get-Service -Name "UserDataSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "UserDataSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 
-	# Disable User Data Storage (UnistoreSvc)
-	Get-Service -name "UnistoreSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable User Data Storage Service (UnistoreSvc)
+	Get-Service -Name "UnistoreSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "UnistoreSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 	
-	# Disable User Tracking
+	# Disable User Tracking Feature
 	New-ItemProperty -Force -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoInstrumentation" -PropertyType DWord -Value 1
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoInstrumentation" -PropertyType DWord -Value 1
 	
@@ -780,66 +762,37 @@ function SvcTweaks {
 	# Disable Wallet Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WalletService" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable WarpJITSvc 
+	# Disable WarpJITSvc Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WarpJITSvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Web Account Manager
+	# Disable Web Account Manager Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\TokenBroker" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Web Client
+	# Disable Web Client Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WebClient" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Web Lang
+	# Disable Web Lang Service
 	New-ItemProperty -Force -Path "HKCU:\Control Panel\International\User Profile" -Name "HttpAcceptLanguageOptOut" -PropertyType DWord -Value 1
 	
-	# Disable Web Search in Start Menu
+	# Disable Web Search in Start Menu Feature
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "DisableWebSearch" -PropertyType DWord -Value 1
 
-	# Disable Windows Camera Frame Server
+	# Disable Windows Camera Frame Server Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\FrameServer" -Name "Start" -PropertyType DWord -Value 4
 
 	# Disable Windows Error Reporting Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WerSvc" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting" -Name "Disabled" -PropertyType DWord -Value 1
-	Get-ScheduledTask  "QueueReporting" | Disable-ScheduledTask
 	
-	# Disable Windows Event Collector
+	# Disable Windows Event Collector Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Wecsvc" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable Windows Insider Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wisvc" -Name "Start" -PropertyType DWord -Value 4
-
-	# Disable Windows Legacy Components
-	Disable-WindowsOptionalFeature -Online -FeatureName "LegacyComponents" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	
-	# Disable Windows Linux Subsystem
-	Disable-WindowsOptionalFeature -Online -FeatureName "Microsoft-Windows-Subsystem-Linux" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	
-	# Disable Windows Media player
-	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\WindowsMediaPlayer" -Name "PreventLibrarySharing" -PropertyType DWord -Value 1
-	Disable-WindowsOptionalFeature -Online -FeatureName "WindowsMediaPlayer" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Disable-WindowsOptionalFeature -Online -FeatureName "MediaPlayback" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Get-WindowsCapability -Online | Where-Object { $_.Name -like "Media.WindowsMediaPlayer*" } | Remove-WindowsCapability -Online | Out-Null
-	
-	# Disable Windows Powershell v2
-	If ((Get-CimInstance -Class "Win32_OperatingSystem").ProductType -eq 1) {
-		Disable-WindowsOptionalFeature -Online -FeatureName "MicrosoftWindowsPowerShellV2Root" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	} Else { 
-		Uninstall-WindowsFeature -Name "PowerShell-V2" -WarningAction SilentlyContinue | Out-Null
-	}
-	
-	# Disable Windows Print Bloat
-	Disable-WindowsOptionalFeature -Online -FeatureName "FaxServicesClientPackage" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Disable-WindowsOptionalFeature -Online -FeatureName "Printing-Foundation-Features" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Disable-WindowsOptionalFeature -Online -FeatureName "Printing-Foundation-InternetPrinting-Client" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Disable-WindowsOptionalFeature -Online -FeatureName "Printing-Foundation-LPDPrintService" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Disable-WindowsOptionalFeature -Online -FeatureName "Printing-Foundation-LPRPortMonitor" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Disable-WindowsOptionalFeature -Online -FeatureName "Printing-PrintToPDFServices-Features" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	Disable-WindowsOptionalFeature -Online -FeatureName "Printing-XPSServices-Features" -NoRestart -WarningAction SilentlyContinue | Out-Null
 		
-	# Disable Windows Restore Points
+	# Disable Windows Restore Point Feature
 	Disable-ComputerRestore -Drive "$env:SYSTEMDRIVE"
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\SystemRestore" -Name "DisableSR" -PropertyType DWord -Value 1
 	vssadmin Delete Shadows /For=$env:SYSTEMDRIVE /Quiet
@@ -848,20 +801,61 @@ function SvcTweaks {
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VSS" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SDRSVC" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Windows Script Host
+	# Disable Windows Script Host Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows Script Host\Settings" -Name "Enabled" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKCU:\SOFTWARE\Microsoft\Windows Script\Settings" -Name "Enabled" -PropertyType DWord -Value 0
 	
-	# Disable Windows Storage Sense
+	# Disable Windows Storage Sense Feature
 	Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Recurse -ErrorAction SilentlyContinue
-	Get-ScheduledTask  "StorageSense" | Disable-ScheduledTask
 	
-	# Disable Windows Wifi Sense
+	# Disable Windows Wifi Sense Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WiFi\AllowWiFiHotSpotReporting" -Name "Value" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WiFi\AllowAutoConnectToWiFiSenseHotspots" -Name "Value" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config" -Name "AutoConnectAllowedOEM" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config" -Name "WiFISenseAllowed" -PropertyType DWord -Value 0
 	
+	# Disable Windows Update 
+		# Automatic Downloads
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -PropertyType DWord -Value 2
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -PropertyType DWord -Value 1
+		
+		# Automatic Restart
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\MusNotification.exe" -Name "Debugger" -PropertyType String -Value "cmd.exe"
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableAutomaticRestartSignOn" -PropertyType DWord -Value 1
+
+		# Background Intelligent Transfer Service (BITS)
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BITS" -Name "Start" -PropertyType DWord -Value 4
+		
+		# Delivery Optimization (DoSvc)
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DoSvc" -Name "Start" -PropertyType DWord -Value 4
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization" -Name "DODownloadMode" -PropertyType DWord -Value 100
+	
+		# Microsoft Store Install Service (InstallService)
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\InstallService" -Name "Start" -PropertyType DWord -Value 4
+	
+		# Nightly wake-up for Automatic Maintenance and Windows Updates
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUPowerManagement" -PropertyType DWord -Value 0
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\Maintenance" -Name "WakeUp" -PropertyType DWord -Value 0
+		
+		# Update Orchestrator Service (UsoSvc)
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\UsoSvc" -Name "Start" -PropertyType DWord -Value 4
+		
+		# Windows License Manager Service (LicenseManager)
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LicenseManager" -Name "Start" -PropertyType DWord -Value 4
+		
+		# Windows Modules Installer (TrustedInstaller)
+		Get-Service -Name "TrustedInstaller" | Stop-Service -Force -ErrorAction SilentlyContinue
+		Set-Service "TrustedInstaller" -StartupType Disabled
+		
+		# Windows Update (wuauserv)
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "DisableWindowsUpdateAccess" -PropertyType DWord -Value 1
+		New-ItemProperty -Force -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\WindowsUpdate" -Name "DisableWindowsUpdateAccess" -PropertyType DWord -Value 1
+		New-ItemProperty -Force -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoWindowsUpdate" -PropertyType DWord -Value 1
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wuauserv" -Name "Start" -PropertyType DWord -Value 4
+		
+		# Windows Update Medic Service (WaaSMedicSvc)
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc" -Name "Start" -PropertyType DWord -Value 4
+
 	# Disable Xbox Services
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\XblAuthManager" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\XblGameSave" -Name "Start" -PropertyType DWord -Value 4
@@ -872,10 +866,7 @@ function SvcTweaks {
 	# Enable DEP for All Processes
 	bcdedit.exe /set `{current`} nx AlwaysOn
 	
-	# Enable Explorer Tweaks
-		# Disable Recent Documents
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoRecentDocsHistory" -PropertyType DWord -Value 1
-		
+	# Enable Explorer.exe		
 		# Disable Autoplay
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers" -Name "DisableAutoplay" -PropertyType DWord -Value 1
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\ShellHWDetection" -Name "Start" -PropertyType DWord -Value 4
@@ -883,11 +874,14 @@ function SvcTweaks {
 		# Disable Autorun
 		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -PropertyType DWord -Value 255
 		
-		# Enable long NTFS paths
-		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -PropertyType DWord -Value 1
-		
 		# Disable NTFS last access
 		fsutil behavior set DisableLastAccess 1 | Out-Null
+		
+		# Disable Recent Documents
+		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoRecentDocsHistory" -PropertyType DWord -Value 1
+		
+		# Enable long NTFS paths
+		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -PropertyType DWord -Value 1
 	
 	# Enable .Net Strong Cryptopgraphy
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\.NETFramework\v4.0.30319" -Name "SchUseStrongCrypto" -PropertyType DWord -Value 1
@@ -904,61 +898,79 @@ function SvcTweaks {
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled" -PropertyType DWord -Value 1
 		
 		# Hide Account Protection warning in Defender about not using a Microsoft account	
-		New-ItemProperty -Force "HKCU:\Software\Microsoft\Windows Security Health\State" -Name "AccountProtection_MicrosoftAccount_Disconnected" -PropertyType DWord -Value 1
-
-	# Enable Windows Update Tweaks
-		# Disable automatic downloads
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -PropertyType DWord -Value 2
-		
-		# Disable automatic restart
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\MusNotification.exe" -Name "Debugger" -PropertyType String -Value "cmd.exe"
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableAutomaticRestartSignOn" -PropertyType DWord -Value 1
-
-		# Disable nightly wake-up for Automatic Maintenance and Windows Updates
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUPowerManagement" -PropertyType DWord -Value 0
-		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\Maintenance" -Name "WakeUp" -PropertyType DWord -Value 0
+		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows Security Health\State" -Name "AccountProtection_MicrosoftAccount_Disconnected" -PropertyType DWord -Value 1
 }
 
 function NetworkTweaks {
-	# Disable automatic install of network devices
+	# Disable Alljoyn Router Service (AJRouter)
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\AJRouter" -Name "Start" -PropertyType DWord -Value 4
+
+	# Disable Automatic Installation of Network Devices (Drivers, Printers, w/e)
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\NcdAutoSetup\Private" -Name "AutoSetup" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NcdAutoSetup" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Connection Sharing
+	# Disable Bluetooth Services
+	Get-Service -Name "BluetoothUserService*" | Stop-Service -Force -ErrorAction SilentlyContinue
+	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "BluetoothUserService*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTAGService" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthA2dp" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthEnum" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthHFEnum" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthLEEnum" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthMini" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTHMODEM" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BthPan" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTHPORT" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bthserv" -Name "Start" -PropertyType DWord -Value 4
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\BTHUSB" -Name "Start" -PropertyType DWord -Value 4
+
+	# Disable Connection Sharing Feature
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\ALG" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections" -Name "NC_ShowSharedAccessUI" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SharedRealitySvc" -Name "Start" -PropertyType DWord -Value 4
 	
+	# Disable Connected Devices Platform Service
+	# Note: This service is heavily undocumented but appears to be used with bluetooth, network devices, etc
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\CDPSvc" -Name "Start" -PropertyType DWord -Value 4
+	Get-Service -Name "CDPUserSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
+	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "CDPUserSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
+	
 	# Disable Data Sharing Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DsSvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Device Association
-	Get-Service -name "DeviceAssociationBrokerSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable Data Usage Service
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DusmSvc" -Name "Start" -PropertyType DWord -Value 4
+	
+	# Disable Device Association Service
+	Get-Service -Name "DeviceAssociationBrokerSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "DeviceAssociationBrokerSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DeviceAssociationService" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Device Picker
-	Get-Service -name "DevicePickerUserSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable DevQuery Background Discovery Broker Service
+	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DevQueryBroker" -Name "Start" -PropertyType DWord -Value 4
+
+	# Disable Device Picker Service
+	Get-Service -Name "DevicePickerUserSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "DevicePickerUserSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 	
-	# Disable Device Flow
-	Get-Service -name "DevicesFlowUserSvc*" | Stop-Service -WarningAction SilentlyContinue
+	# Disable Device Flow Service
+	Get-Service -Name "DevicesFlowUserSvc*" | Stop-Service -Force -ErrorAction SilentlyContinue
 	Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\" -Recurse -Include "DevicesFlowUserSvc*" -ErrorAction SilentlyContinue | New-ItemProperty -Force -Name "Start" -PropertyType DWord -Value 4 | Out-Null
 	
 	# Disable Device Management 
-		# Enrollment
+		# Enrollment Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\DmEnrollmentSvc" -Name "Start" -PropertyType DWord -Value 4
-		# Wireless Application Protocol
+		# Wireless Application Protocol Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\dmwappushservice" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable Distributed Link
-		# Tracking Client
-		Stop-Service "TrkWks" -WarningAction SilentlyContinue
+		# Tracking Client Service
+		Get-Service -Name "TrkWks" | Stop-Service -Force -ErrorAction SilentlyContinue
 		Set-Service "TrkWks" -StartupType Disabled
-		# Transaction Coordinator
+		# Transaction Coordinator Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\MSDTC" -Name "Start" -PropertyType DWord -Value 4
-		# KtmRm for Distributed Transaction Coordinator
+		# KtmRm for Distributed Transaction Coordinator Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\KtmRm" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable DNS settings on adapters
@@ -971,41 +983,30 @@ function NetworkTweaks {
 			New-ItemProperty -Force -Path $_.PsPath -Name "RegistrationEnabled" -PropertyType DWord -Value 0
 		}
 		
-	# Disable Extensible Authentication Protocol
+	# Disable Extensible Authentication Protocol Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Eaphost" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Function Discovery Provider Host
+	# Disable Function Discovery Provider Host Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\fdPHost" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\FDResPub" -Name "Start" -PropertyType DWord -Value 4
-	
-	# Disable Homegroup
-	If (Get-Service "HomeGroupListener" -ErrorAction SilentlyContinue) {
-		Stop-Service "HomeGroupListener" -WarningAction SilentlyContinue
-		Set-Service "HomeGroupListener" -StartupType Disabled
-	}
-	
-	If (Get-Service "HomeGroupProvider" -ErrorAction SilentlyContinue) {
-		Stop-Service "HomeGroupProvider" -WarningAction SilentlyContinue
-		Set-Service "HomeGroupProvider" -StartupType Disabled
-	}
 	
 	# Disable Ipv6
 	Disable-NetAdapterBinding -Name "*" -ComponentID "ms_tcpip6"
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP6\Parameters" -Name "DisabledComponents" -PropertyType DWord -Value "0xFFFFFFFF"
 	
-	# Disable IP Helper
+	# Disable IP Helper Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\iphlpsvc" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable IP Translation
+	# Disable IP Translation Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\IpxlatCfgSvc" -Name "Start" -PropertyType DWord -Value 4
 
 	# Disable IPsec 
-		# IKE and AuthIP IPsec Keying Modules
+		# IKE and AuthIP IPsec Keying Modules Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\IKEEXT" -Name "Start" -PropertyType DWord -Value 4
-		# Policy Agent
+		# Policy Agent Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\PolicyAgent" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Link-Layer Topology Discovery Mapper
+	# Disable Link-Layer Topology Discovery Mapper Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\lltdsvc" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable LLMNR	
@@ -1026,10 +1027,10 @@ function NetworkTweaks {
 	# Disable MS Net Client
 	Disable-NetAdapterBinding -Name "*" -ComponentID "ms_msclient"
 
-	# Disable Natural Authentication
+	# Disable Natural Authentication Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NaturalAuthentication" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Network Connection Broker
+	# Disable Network Connection Broker Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NcbService" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable NetBIOS
@@ -1041,10 +1042,10 @@ function NetworkTweaks {
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NetBIOS" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NetBT" -Name "Start" -PropertyType DWord -Value 4
 
-	# Disable Net Logon
+	# Disable Net Logon Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Net TCP Port Sharing
+	# Disable Net TCP Port Sharing Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NetTcpPortSharing" -Name "Start" -PropertyType DWord -Value 4
 
 	# Disable NCSI Probe
@@ -1056,7 +1057,7 @@ function NetworkTweaks {
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\PNRPAutoReg" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\PNRPsvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable power management option on adapters 
+	# Disable Power Management Option on Adapters 
 	foreach ($NIC in (Get-NetAdapter -Physical)){
 		$PowerSaving = Get-CimInstance -ClassName MSPower_DeviceEnable -Namespace root\wmi | ? {$_.InstanceName -match [Regex]::Escape($NIC.PnPDeviceID)}
 		if ($PowerSaving.Enable){
@@ -1065,7 +1066,7 @@ function NetworkTweaks {
 		}
 	}
 	
-	# Disable projecting to this PC
+	# Disable Projecting to This PC Feature
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Connect" -Name "AllowProjectionToPC" -PropertyType DWord -Value 0
 
 	# Disable QoS
@@ -1080,7 +1081,6 @@ function NetworkTweaks {
 		
 		# Assistance
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Remote Assistance" -Name "fAllowToGetHelp" -PropertyType DWord -Value 0
-		Get-ScheduledTask  "RemoteAssistanceTask" | Disable-ScheduledTask
 		
 		# Desktop
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -PropertyType DWord -Value 1
@@ -1088,54 +1088,36 @@ function NetworkTweaks {
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\TermService" -Name "Start" -PropertyType DWord -Value 4
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\UmRdpService" -Name "Start" -PropertyType DWord -Value 4
 		
-		# Routing and remote access
+		# Routing and Remote Access
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\RemoteAccess" -Name "Start" -PropertyType DWord -Value 4
 		
 		# SMB Server
-		Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force
-		Set-SmbServerConfiguration -EnableSMB2Protocol $false -Force
 		Disable-NetAdapterBinding -Name "*" -ComponentID "ms_server"
-		Disable-WindowsOptionalFeature -Online -FeatureName "SMB1Protocol" -NoRestart -WarningAction SilentlyContinue | Out-Null
-		Disable-WindowsOptionalFeature -Online -FeatureName "SMB1Protocol-Client" -NoRestart -WarningAction SilentlyContinue | Out-Null
-		Disable-WindowsOptionalFeature -Online -FeatureName "SMB1Protocol-Server" -NoRestart -WarningAction SilentlyContinue | Out-Null
-		Disable-WindowsOptionalFeature -Online -FeatureName "SMB1Protocol-Deprecation" -NoRestart -WarningAction SilentlyContinue | Out-Null
 		
 		# Windows Remote Management (WS-Management)
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WinRM" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Remote Differential Compression API Support 
-	Disable-WindowsOptionalFeature -Online -FeatureName "MSRDC-Infrastructure" -NoRestart -WarningAction SilentlyContinue | Out-Null
-	
-	# Disable Shared Experiences
+	# Disable Shared Experiences Feature
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\CDP" -Name "RomeSdkChannelUserAuthzPolicy" -PropertyType DWord -Value 0
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows" -Name "EnableCdp" -PropertyType DWord -Value 0
 	
-	# Disable SNMP Trap
+	# Disable SNMP Trap Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SNMPTRAP" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable SSDP Discovery
+	# Disable SSDP Discovery Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SSDPSRV" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable SSTP
+	# Disable SSTP Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SstpSvc" -Name "Start" -PropertyType DWord -Value 4
-
-	# Disable SSH
-		# Client
-		Get-WindowsCapability -Online | Where-Object { $_.Name -like "OpenSSH.Client*" } | Remove-WindowsCapability -Online | Out-Null
-		# Server
-		Get-WindowsCapability -Online | Where-Object { $_.Name -like "OpenSSH.Server*" } | Remove-WindowsCapability -Online | Out-Null
 		
-	# Disable UPnP Device Host
+	# Disable UPnP Device Host Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\upnphost" -Name "Start" -PropertyType DWord -Value 4
-	Get-ScheduledTask  "UPnPHostConfig" | Disable-ScheduledTask
 	
 	# Disable VPN
 		# Over a Metered Connection 
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\Parameters\Config\VpnCostedNetworkSettings" -Name "NoCostedNetwork" -PropertyType DWord -Value 1
 		# Over a Roaming Connection
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\Parameters\Config\VpnCostedNetworkSettings" -Name "NoRoamingNetwork" -PropertyType DWord -Value 1
-		# Tasks
-		Get-ScheduledTask  "MobilityManager" | Disable-ScheduledTask
 		
 	# Disable Workstation & Server
 		# Admin Shares (Also known as Hidden Shares)
@@ -1157,25 +1139,22 @@ function NetworkTweaks {
 		# Server Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer" -Name "Start" -PropertyType DWord -Value 4
 		
-		# Workstation Feature & Service
-		Disable-WindowsOptionalFeature -Online -FeatureName "WorkFolders-Client" -NoRestart -WarningAction SilentlyContinue | Out-Null
+		# Workstation Service
 		New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable Wi-Fi Direct Services Connection Manager Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WFDSConMgrSvc" -Name "Start" -PropertyType DWord -Value 4
 	
-	# Disable Windows Connect Now - Config Registrar
+	# Disable Windows Connect Now - Config Registrar Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcncsvc" -Name "Start" -PropertyType DWord -Value 4
 	
 	# Disable Windows Mobile Hotspot Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\icssvc" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\WlanSvc\AnqpCache" -Name "OsuRegistrationStatus" -PropertyType DWord -Value 0
-	Get-ScheduledTask  "MNO Metadata Parser" | Disable-ScheduledTask
 	
-	# Disable WWAN AutoConfig
+	# Disable WWAN AutoConfig Service
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WwanSvc" -Name "Start" -PropertyType DWord -Value 4
 	New-ItemProperty -Force -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wlpasvc" -Name "Start" -PropertyType DWord -Value 4
-	Get-ScheduledTask  "NotificationTask" | Disable-ScheduledTask
 	
 	# Harden Windows Firewall
 		# Remove all pre-existing firewall rules
@@ -1200,12 +1179,12 @@ function UITweak {
 	New-ItemProperty -Force -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableNotificationCenter" -PropertyType DWord -Value 1
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications" -Name "ToastEnabled" -PropertyType DWord -Value 0
 	
-	# Disable Accessibility keys prompts (Sticky keys, Toggle keys, Filter keys)
+	# Disable Accessibility Keys Prompts (Sticky keys, Toggle keys, Filter keys)
 	New-ItemProperty -Force -Path "HKCU:\Control Panel\Accessibility\StickyKeys" -Name "Flags" -PropertyType String -Value "506"
 	New-ItemProperty -Force -Path "HKCU:\Control Panel\Accessibility\ToggleKeys" -Name "Flags" -PropertyType String -Value "58"
 	New-ItemProperty -Force -Path "HKCU:\Control Panel\Accessibility\Keyboard Response" -Name "Flags" -PropertyType String -Value "122"
 	
-	# Disable default pins
+	# Disable Default Pins
 	If ([System.Environment]::OSVersion.Version.Build -ge 15063 -And [System.Environment]::OSVersion.Version.Build -le 16299) {
 		Get-ChildItem -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\Cache\DefaultAccount" -Include "*.group" -Recurse | ForEach-Object {
 			$data = (Get-ItemProperty -Path "$($_.PsPath)\Current" -Name "Data").Data -Join ","
@@ -1219,8 +1198,8 @@ function UITweak {
 		Stop-Process -Name "ShellExperienceHost" -Force -ErrorAction SilentlyContinue
 	}
 	
-	# Disable Explorer
-		# 3D Access shortcuts
+	# Disable Explorer.exe
+		# 3D Access Shortcuts
 		Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{0DB7E03F-FC29-4DC6-9020-FF41B59E513A}" -Recurse -ErrorAction SilentlyContinue
 		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{31C0DD25-9439-4F12-BF41-7FF4EDA38722}\PropertyBag" -Name "ThisPCPolicy" -PropertyType String -Value "Hide"
 		New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{31C0DD25-9439-4F12-BF41-7FF4EDA38722}\PropertyBag" -Name "ThisPCPolicy" -PropertyType String -Value "Hide"
@@ -1250,7 +1229,7 @@ function UITweak {
 		# Sync Notifications
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowSyncProviderNotifications" -PropertyType DWord -Value 0
 		
-		# Thumbnail cache
+		# Thumbnail Cache
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "DisableThumbnailCache" -PropertyType DWord -Value 1
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "DisableThumbsDBOnNetworkFolders" -PropertyType DWord -Value 1
 		New-ItemProperty -Force -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableThumbsDBOnNetworkFolders" -PropertyType DWord -Value 1
@@ -1258,6 +1237,9 @@ function UITweak {
 	# Disable F1 help key
 	New-ItemProperty -Force -Path "HKCU:\Software\Classes\TypeLib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}\1.0\0\win32" -Name "(Default)" -PropertyType "String" -Value ""
 	New-ItemProperty -Force -Path "HKCU:\Software\Classes\TypeLib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}\1.0\0\win64" -Name "(Default)" -PropertyType "String" -Value ""
+	
+	# Disable First Logon Animation
+	New-ItemProperty -Force -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableFirstLogonAnimation" -PropertyType DWord -Value 0
 	
 	# Disable Lock Screen
 		# Blur
@@ -1296,11 +1278,11 @@ function UITweak {
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Name "{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}" -PropertyType DWord -Value 0
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}" -PropertyType DWord -Value 0
 
-		# Small icons
+		# Small Icons
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "StartupPage" -PropertyType DWord -Value 1
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "AllItemsIconView" -PropertyType DWord -Value 1
 	
-	# Enable Explorer 
+	# Enable Explorer.exe 
 		# Expanded Nav Panel
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "NavPaneExpandToCurrentFolder" -PropertyType DWord -Value 1
 
@@ -1313,7 +1295,7 @@ function UITweak {
 		# Known Extensions
 		New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -PropertyType DWord -Value 0
 	
-	# Enable Smallicons
+	# Enable Small Taskbar Icons
 	New-ItemProperty -Force -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarSmallIcons" -PropertyType DWord -Value 1
 	
 	# Enable Taskbar combine when full
