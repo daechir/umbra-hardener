@@ -2,8 +2,14 @@
 Author: Daechir <br/>
 Author URL: https://github.com/daechir <br/>
 License: GNU GPL <br/>
-Modified Date: 03/31/20 <br/>
-Version: v2
+Modified Date: 06/05/20 <br/>
+Version: v3
+
+
+## PSA
+As of v3 I am officially unsupporting this project. Each new itteration of Windows 10 continues
+to get buggier and less stable. Moving away from Windows 10 seems to be the only solution
+in having a stable, private and security focused OS. Umbra Hardener whereof is kept here for educational purposes or for reference in the creation a new project.
 
 
 ## Purpose
@@ -32,6 +38,7 @@ Refusal to follow these guidelines may result in system corruption, system insta
 ## Supported Versions
  | Version | Edition(s) | Tested |
  | --- | --- | --- |
+ | 2004 | Home x64 | Yes but buggy |
  | 1909 | Home x64 | Yes |
  | 1903 | Home x64 | Yes |
  | 1809 | Home x64 | Yes |
